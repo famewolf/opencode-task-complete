@@ -40,9 +40,7 @@
 // `opencode-todolist@0.6.1` (MIT, (c) 2026 aiev,
 // https://github.com/aiev/opencode-todolist, tag v0.6.1, file
 // src/tui-data.ts) - the same routine is called latestTodosFromMessages
-// there. NOT the famewolf/opencode-todolist mirror and NOT the
-// opencode-todolist-fix fork: neither was the source of this file. The
-// third-party notice is in the LICENSE file.
+// there. The third-party notice is in the LICENSE file.
 import { readFileSync } from "node:fs";
 
 const DESCRIPTION =

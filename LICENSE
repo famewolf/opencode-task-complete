@@ -36,7 +36,4 @@ package `opencode-todolist@0.6.1`, which is MIT licensed:
 The algorithm (replay every completed `todowrite` into a chronological
 timeline, the newest write is the current list) and the "keep an entry with an
 unrecognized status" rule come from that project, where the routine is called
-`latestTodosFromMessages` / `todowritesFromMessages`. The upstream project is
-aiev/opencode-todolist - not the `famewolf/opencode-todolist` mirror and not
-the `opencode-todolist-fix` fork, which are the same code with other changes
-and were not the source of this file.
+`latestTodosFromMessages` / `todowritesFromMessages`.

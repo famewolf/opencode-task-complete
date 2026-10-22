@@ -237,6 +237,4 @@ the npm package `opencode-todolist@0.6.1` —
 [aiev/opencode-todolist](https://github.com/aiev/opencode-todolist), tag
 `v0.6.1`, file
 [`src/tui-data.ts`](https://github.com/aiev/opencode-todolist/blob/v0.6.1/src/tui-data.ts)
-(MIT, © 2026 aiev). The third-party notice is in the LICENSE file. (Not the
-`famewolf/opencode-todolist` mirror or the `opencode-todolist-fix` fork -
-neither was the source of this file.)
+(MIT, © 2026 aiev). The third-party notice is in the LICENSE file.
