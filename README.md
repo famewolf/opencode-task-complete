@@ -67,15 +67,18 @@ reaches the model as a top-level tool. The `opencode-todolist` plugin (npm
 
 ### The protocol
 
-The plugin injects the completion rule into the session's system prompt (the
-same `context` hook the memory router uses), so the model knows *when* to call
-the tool even in an install with no AGENTS.md and no memory plugin:
+The plugin injects the completion rule into the session's system prompt, so
+the model knows *when* to call the tool even in an install with no AGENTS.md
+and no other plugin: opencode exposes a `context` session hook that fires
+before every model request, and the rule is pushed onto the request's system
+prompt there.
 
 > Task completion: when all the requested work is done, call the task_complete
 > tool once - that is what stops the automatic continue nudges. If todo tools
 > are available, mark every todo completed first: a completion with open items
-> is refused and you are told what is left. Call it once, then end the turn
-> with a brief text reply.
+> is refused and you are told what is left. If there are no todo tools, keep
+> the work list in a findings file or a todo file and mark items done there
+> instead. Call it once, then end the turn with a brief text reply.
 
 **It checks first.** If the rule is already in effect - an operator's
 AGENTS.md, an agent file, another plugin's injection - the plugin stays quiet
@@ -166,9 +169,11 @@ ctx.tool.hook("execute.after", async (event: any) => {
 
 auto-resume also keeps a **fallback copy** of the tool, registered only when
 nothing else provides it, so it still works as-is in an install without this
-plugin. The detection follows the pattern the memory plugin uses for its todo
-fallback: the live tool list, and — decisively, because the load order is the
-config order — the config file.
+plugin. It decides by two signals: the **live tool list** (does a
+`task_complete` tool already exist in the registry?), and — decisively,
+because plugins load in the order they are listed in the config, so a plugin
+listed after auto-resume has not registered its tool yet — the **config file**
+(does `opencode.jsonc` list a task-complete plugin at all?).
 
 ---
 

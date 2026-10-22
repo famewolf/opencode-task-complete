@@ -175,8 +175,8 @@ describe("task-complete: the plugin teaches the model the protocol", () => {
 	test("the completion rule is injected into the session's system prompt", async () => {
 		// The tool in the tool list is not enough: the model has to know WHEN to
 		// call it. A user who installs this plugin may have no AGENTS.md
-		// completion rule and no infra-memory plugin - so the plugin carries the
-		// rule itself.
+		// completion rule and no other plugin injecting one - so the plugin
+		// carries the rule itself.
 		const h = await setup()
 		const system: any[] = []
 		await h.sessionHooks.get("context")?.({ system, sessionID: SID })
