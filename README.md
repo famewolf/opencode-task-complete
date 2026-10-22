@@ -1,0 +1,190 @@
+# opencode-task-complete
+
+The `task_complete` tool for **OpenCode v2** — the model's explicit "I am
+finished" signal, and the thing that makes a watcher (auto-resume) stand down
+instead of nudging a finished session back to life.
+
+v2 removed v1's `task_complete`. This plugin puts it back, as a *general*
+capability rather than a private copy inside one watcher: the tool registry is
+**one global map per opencode server**, so every plugin can list it, extend it
+and observe its calls.
+
+```sh
+# opencode.jsonc
+"plugins": [
+  "opencode-task-complete@latest"
+]
+```
+
+or, from a checkout:
+
+```json
+{ "package": "file:///path/to/opencode-task-complete" }
+```
+
+---
+
+## The tool
+
+| | |
+|---|---|
+| name | `task_complete` |
+| arguments | none — the signal is the call, not a payload |
+| surface | **direct**: the model calls it itself (see below) |
+| result | `{ content, metadata: { completed: true } }` — or `metadata: { completed: false, openTodos: N }` when the todo gate refused it |
+
+### Why it is a DIRECT tool
+
+The tool registers with `options: { codemode: false }`. Without that option a
+plugin tool lands in the **Code Mode catalog** and is only reachable through
+the `execute` runtime — the model can never call it, and any instruction to do
+so ends in an unknown-tool error. In opencode's core
+(`packages/core/src/tool.ts`) the registry is split in two: `direct` — the
+tools with `codemode === false` — and the Code Mode catalog, and only `direct`
+reaches the model as a top-level tool. The `todowrite`/`todoread` plugin uses
+the same switch.
+
+### v1 semantics, kept
+
+- **The todo gate.** A completion is refused while todos are still open, and
+  the result names them. A model that keeps calling after that is a loop, not
+  a worker, so the block is bounded (`maxOverrides`, default 3): after that the
+  call is believed.
+- **The ack self-loop guard.** The ack is fed straight back into the turn, and
+  a stuck model answers it by calling the tool again rather than ending with
+  text (v1 logged 27 consecutive acked calls with zero new user input). So the
+  first call acks with an explicit stop instruction, the second warns, the
+  third throws to force the turn to end.
+- **The counter resets** on a new inbound user message and on any other tool
+  call, so the escalation measures a genuinely stuck loop and not several
+  legitimate rounds of work.
+
+### The protocol
+
+The plugin injects the completion rule into the session's system prompt (the
+same `context` hook the memory router uses), so the model knows *when* to call
+the tool even in an install with no AGENTS.md and no memory plugin:
+
+> Task completion: when all the requested work is done, call the task_complete
+> tool once - that is what stops the automatic continue nudges. If todo tools
+> are available, mark every todo completed first: a completion with open items
+> is refused and you are told what is left. Call it once, then end the turn
+> with a brief text reply.
+
+**It checks first.** If the rule is already in effect - an operator's
+AGENTS.md, an agent file, another plugin's injection - the plugin stays quiet
+rather than saying the same thing twice on every request.
+
+The bare-line fallback (`TASK COMPLETE` on its own last line) is the other
+half of the protocol, and it needs no plugin: a watcher can detect the
+end-anchored line itself.
+
+---
+
+## How a plugin checks for task completion
+
+Two ways, and the second is the one that generalises.
+
+### 1. Watch the tool call (recommended)
+
+Every plugin in the server can observe the call through the registry's
+`execute.after` hook. The event carries the tool name, the session, the status
+and the result — so a consumer does not need to own the tool, and does not
+need to poll anything:
+
+```ts
+ctx.tool.hook("execute.after", async (event) => {
+  if (event.tool !== "task_complete") return
+  if (event.status !== "completed") return
+
+  const completed = event.result?.metadata?.completed !== false
+  if (!completed) {
+    // The todo gate refused it: event.result.metadata.openTodos says how
+    // many are still open, and event.result.content names them.
+    return
+  }
+  // The model says the work is done.
+})
+```
+
+`event.result.metadata.completed` is the channel: `true` = the completion was
+accepted, `false` = the todo gate refused it (`metadata.openTodos` says how
+many are open). A consumer that only cares about "the work is done" checks
+`completed === true` and ignores everything else.
+
+### 2. Read the tool's own state
+
+A plugin that wants the completion state of a session it is driving can also
+look for the tool in the registry and call it the way a model would — the tool
+is a normal tool, so `ctx.tool.list()` and the editor APIs work on it like on
+any other.
+
+### 3. The text fallback
+
+With no tool in the session, the protocol's other half applies: the reply ends
+with the bare words `TASK COMPLETE` on their own last line, and a watcher
+detects that end-anchored line itself. A watcher that supports both is
+covered whichever way the model signals.
+
+---
+
+## Example: auto-resume
+
+**auto-resume** (the stall watchdog) is the worked example. It exists to wake
+a session that stopped mid-flight — but a session that has *finished* must not
+be woken, so it needs to know when the model says it is done. It does not own
+the tool; it observes it:
+
+```ts
+// auto-resume: src/v2/index.ts
+ctx.tool.hook("execute.after", async (event: any) => {
+    if (event?.tool !== "task_complete") return
+    if (event?.status !== "completed") return
+    const sid = event?.sessionID
+    if (!sid) return
+    const w = ensureWatch(sid)
+    const result = event?.result
+    if (result?.metadata?.completed === false) {
+        // The todo gate refused it: name the work that is left. The tool
+        // result carries the reminder, but a collapsed tool result would hide
+        // it, so auto-resume injects it too.
+        const content = typeof result?.content === "string" ? result.content : ""
+        if (content) await injectOnce(sid, content, "task-complete-blocked")
+        return
+    }
+    // The stand-down: the completion latch stops the nudges.
+    w.completionSignaled = true
+    w.completionSignaledAt = Date.now()
+})
+```
+
+auto-resume also keeps a **fallback copy** of the tool, registered only when
+nothing else provides it, so it still works as-is in an install without this
+plugin. The detection follows the pattern the memory plugin uses for its todo
+fallback: the live tool list, and — decisively, because the load order is the
+config order — the config file.
+
+---
+
+## Where the todo list comes from
+
+The list belongs to the `todowrite` plugin, and plugin storage is namespaced
+per plugin id, so the list is read the way the todolist plugin's own TUI
+reads it: the newest completed `todowrite` tool part in the session history. A
+`todowrite` REPLACES the whole list, so the newest such call IS the current
+list. An entry with an unrecognized status is kept rather than dropped: only
+`pending`/`in_progress` count as open, so an unknown status reads as closed —
+and dropping it would shrink the list, which is the dangerous direction (it
+makes real open work look finished).
+
+## Tests
+
+```sh
+bun test test/
+```
+
+## License
+
+MIT — see [LICENSE](./LICENSE). The session todo-list parser is derived from
+[opencode-todolist](https://github.com/aiev/opencode-todolist) (MIT, © 2026
+aiev); the third-party notice is in the LICENSE file.

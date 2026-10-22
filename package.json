@@ -1,0 +1,36 @@
+{
+  "name": "opencode-task-complete",
+  "version": "0.1.0",
+  "description": "OpenCode V2 plugin: the task_complete tool - the model's explicit 'I am finished' signal, with the v1 todo gate and ack self-loop guard, observable by any plugin.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "bun test test/"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "task-complete",
+    "task_complete",
+    "completion"
+  ],
+  "license": "MIT",
+  "author": "famewolf",
+  "repository": {
+    "type": "git",
+    "url": "http://192.168.3.11:3000/famewolf/opencode-task-complete.git"
+  },
+  "engines": {
+    "opencode": ">=2.0.0"
+  }
+}
