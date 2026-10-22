@@ -98,8 +98,59 @@ const PROTOCOL =
 	"If todo tools are available, mark every todo completed first: a completion with open items is refused and you are told what is left. " +
 	"If there are no todo tools, keep the work list in a findings file or a todo file and mark items done there instead. " +
 	"Call it once, then end the turn with a brief text reply. " +
-	"If this session has no task_complete tool, end the reply with the bare words TASK COMPLETE on their own last line instead - " +
-	"that is the other completion signal, and a watcher reads it from the transcript.";
+	"Always end that reply with the bare words TASK COMPLETE on their own last line - even when the tool was available, " +
+	"because opencode withholds tools from sessions created before the last restart, and the line is the completion signal " +
+	"that always works: a watcher reads it from the transcript.";
+
+// ---------------------------------------------------------------------------
+// Is this session a subagent?
+// ---------------------------------------------------------------------------
+
+/** sid -> { at, isSub } - a minute of caching is enough: a session's
+ *  parentage does not change under it. */
+const subagentCache = new Map();
+
+/**
+ * A subagent's completion is the CONTROLLER's business: the controller is
+ * already notified when a worker finishes, and what it reads is the worker's
+ * own contract (the `DONE: <one-line summary>` the controller specified).
+ * A second completion signal from a worker is noise, and the ack ("end your
+ * turn now") fights that contract - so the protocol is not taught to
+ * subagents.
+ *
+ * v1 registered the tool globally and a subagent could call it; the v1 log
+ * line "task_complete called, subagent done" shows it happened - and it
+ * changed nothing for the parent.
+ */
+async function isSubAgentSession(ctx, sid) {
+	const hit = subagentCache.get(sid);
+	if (hit && Date.now() - hit.at < 60_000) return hit.isSub;
+	let isSub = false;
+	try {
+		const res = await ctx.client?.session?.get?.({ path: { id: sid } });
+		if (res?.data?.parentID) isSub = true;
+	} catch {
+		// No client surface: the HTTP path below.
+	}
+	if (!isSub) {
+		for (const base of serverBaseUrls()) {
+			try {
+				const res = await fetch(`${base}/api/session/${encodeURIComponent(sid)}`, { headers: serverHeaders() });
+				if (!res.ok) continue;
+				const body = await res.json();
+				const data = body?.data ?? body;
+				if (data && typeof data === "object" && data.parentID) {
+					isSub = true;
+					break;
+				}
+			} catch {
+				// Next base; exhaustion reads as "not a subagent".
+			}
+		}
+	}
+	subagentCache.set(sid, { at: Date.now(), isSub });
+	return isSub;
+}
 
 // ---------------------------------------------------------------------------
 // Per-session state (plugin storage, so it survives a plugin reload)
@@ -290,27 +341,6 @@ function lastUserMessageId(messages) {
  *  finishing, and gating a child's report on the parent's todo list would
  *  block it on work it was never asked to do (v1 skips the todo gate for
  *  subagents for the same reason). */
-async function isSubAgentSession(ctx, sid) {
-	try {
-		const res = await ctx.client?.session?.get?.({ path: { id: sid } });
-		if (res?.data?.parentID) return true;
-	} catch {
-		// No client surface: fall through to the HTTP check.
-	}
-	for (const base of serverBaseUrls()) {
-		try {
-			const res = await fetch(`${base}/api/session?limit=500`, { headers: serverHeaders() });
-			if (!res.ok) continue;
-			const body = await res.json();
-			const data = body?.data ?? body;
-			if (!Array.isArray(data)) continue;
-			return data.some((r) => r?.id === sid && typeof r?.parentID === "string");
-		} catch {
-			// Next base; exhaustion reads as "not a subagent".
-		}
-	}
-	return false;
-}
 
 // ---------------------------------------------------------------------------
 // The plugin
@@ -332,6 +362,8 @@ export default {
 				await ctx.session?.hook?.("context", async (event) => {
 					try {
 						if (!Array.isArray(event?.system)) return;
+						// A worker's completion is the controller's business.
+						if (event?.sessionID && (await isSubAgentSession(ctx, event.sessionID))) return;
 						if (event.system.some((p) => typeof p?.text === "string" && p.text.startsWith(PROTOCOL_MARKER))) return;
 						// Is the rule ALREADY in effect? An operator's AGENTS.md, an
 						// agent file or another plugin may already carry the

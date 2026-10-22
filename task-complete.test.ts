@@ -22,6 +22,8 @@ import plugin from "../index.js"
  */
 
 const SID = "ses_task_complete"
+/** Unique per test: the plugin caches session parentage per id for a minute. */
+let counter = 0
 const OLD = Date.now() - 60 * 60_000
 
 const userMessage = (text: string, at: number, id = `msg_u_${at}`) => ({
@@ -62,6 +64,7 @@ type Harness = {
 	sessionHooks: Map<string, (event: any) => unknown>
 	store: Map<string, any>
 	history: unknown[]
+	sid: string
 	cleanup: () => void
 }
 
@@ -79,6 +82,9 @@ async function setup(
 	const store = new Map<string, any>()
 	const history: unknown[] = [userMessage("do the work", OLD), ...(opts.extraMessages ?? [])]
 	if (opts.todos) history.push(todoWrite(opts.todos, OLD + 1))
+	// A unique session id per test: the plugin caches parentage per session id
+	// for a minute, and tests sharing one id would poison the cache for the next.
+	const sid = `ses_tc_${counter++}`
 
 	const sessionHooks = new Map<string, (event: any) => unknown>()
 
@@ -98,7 +104,7 @@ async function setup(
 		client: {
 			session: {
 				message: { list: async () => ({ data: history }) },
-				get: async () => ({ data: opts.parentID ? { id: SID, parentID: opts.parentID } : { id: SID } }),
+				get: async () => ({ data: opts.parentID ? { id: sid, parentID: opts.parentID } : { id: sid } }),
 			},
 		},
 	}
@@ -130,11 +136,12 @@ async function setup(
 		sessionHooks,
 		store,
 		history,
+		sid,
 		cleanup: cleanup as () => void,
 	}
 }
 
-const call = (h: Harness, sid = SID) => h.tool!.execute({}, { sessionID: sid })
+const call = (h: Harness, sid?: string) => h.tool!.execute({}, { sessionID: sid ?? h.sid })
 
 describe("task-complete: the tool is offered to the model", () => {
 	test("CONTROL: the tool is registered, and takes no arguments", async () => {
@@ -179,7 +186,7 @@ describe("task-complete: the plugin teaches the model the protocol", () => {
 		// carries the rule itself.
 		const h = await setup()
 		const system: any[] = []
-		await h.sessionHooks.get("context")?.({ system, sessionID: SID })
+		await h.sessionHooks.get("context")?.({ system, sessionID: h.sid })
 		const injected = system.filter((p) => typeof p?.text === "string" && p.text.startsWith("Task completion:"))
 		expect(injected.length).toBe(1)
 		expect(injected[0].text).toContain("task_complete")
@@ -187,8 +194,11 @@ describe("task-complete: the plugin teaches the model the protocol", () => {
 		// The todo plugin may not be installed: the protocol has to cover the
 		// findings-file / todo-file fallback the model uses instead.
 		expect(injected[0].text).toContain("findings file or a todo file")
-		// The bare-line signal is taught too, and says who reads it: a watcher.
+		// The bare-line signal is taught UNCONDITIONALLY: opencode withholds
+		// tools from sessions created before the last restart, so the line is the
+		// signal that always works - and it says who reads it: a watcher.
 		expect(injected[0].text).toContain("TASK COMPLETE")
+		expect(injected[0].text).toContain("Always end that reply with the bare words TASK COMPLETE")
 		expect(injected[0].text).toContain("a watcher reads it from the transcript")
 		h.cleanup()
 	})
@@ -203,7 +213,7 @@ describe("task-complete: the plugin teaches the model the protocol", () => {
 			{ type: "text", text: "some agent instructions" },
 			{ type: "text", text: "end the turn with TASK COMPLETE on its own last line" },
 		]
-		await h.sessionHooks.get("context")?.({ system, sessionID: SID })
+		await h.sessionHooks.get("context")?.({ system, sessionID: h.sid })
 		expect(system.filter((p) => typeof p?.text === "string" && p.text.startsWith("Task completion:")).length).toBe(0)
 		h.cleanup()
 	})
@@ -211,7 +221,7 @@ describe("task-complete: the plugin teaches the model the protocol", () => {
 	test("no injection when the tool rule is already in effect", async () => {
 		const h = await setup()
 		const system: any[] = [{ type: "text", text: "CALL the `task_complete` tool when the work is done" }]
-		await h.sessionHooks.get("context")?.({ system, sessionID: SID })
+		await h.sessionHooks.get("context")?.({ system, sessionID: h.sid })
 		expect(system.filter((p) => typeof p?.text === "string" && p.text.startsWith("Task completion:")).length).toBe(0)
 		h.cleanup()
 	})
@@ -221,8 +231,8 @@ describe("task-complete: the plugin teaches the model the protocol", () => {
 		// valid; a second copy would grow the prompt for nothing.
 		const h = await setup()
 		const system: any[] = []
-		await h.sessionHooks.get("context")?.({ system, sessionID: SID })
-		await h.sessionHooks.get("context")?.({ system, sessionID: SID })
+		await h.sessionHooks.get("context")?.({ system, sessionID: h.sid })
+		await h.sessionHooks.get("context")?.({ system, sessionID: h.sid })
 		expect(system.filter((p) => typeof p?.text === "string" && p.text.startsWith("Task completion:")).length).toBe(1)
 		h.cleanup()
 	})
@@ -259,7 +269,7 @@ describe("task-complete: the ack self-loop", () => {
 		const h = await setup()
 		await call(h)
 		// Another tool ran: the model is doing work, not looping.
-		await h.hooks.get("execute.after")?.({ tool: "read", sessionID: SID, status: "completed" })
+		await h.hooks.get("execute.after")?.({ tool: "read", sessionID: h.sid, status: "completed" })
 		const second = await call(h)
 		expect(second.content).toContain("Task completion acknowledged")
 		expect(second.content).not.toContain("acknowledged already")

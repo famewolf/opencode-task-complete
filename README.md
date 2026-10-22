@@ -75,13 +75,26 @@ understand both:
    provides.
 2. **The bare line.** `TASK COMPLETE`, alone on the last line of the reply.
    Any watcher can read that out of the transcript, with no tool involved at
-   all — which is why the protocol below teaches it even though the tool is
-   right there: a session may have no `task_complete` tool (the plugin is not
-   installed, or the tool is disabled), and the bare line still ends the work
-   cleanly.
+   all — which is why the protocol below teaches it **unconditionally**, even
+   though the tool is right there:
+
+   - opencode withholds tools from sessions created before the last restart,
+     so a session that predates this plugin's install cannot call it at all;
+   - a tool can be disabled for a session, or the plugin may not be installed
+     on the box at all.
+
+   The line is the signal that always works, so the model emits it either way.
 
 Neither signal is auto-resume-specific. Any plugin that watches sessions can
 use either; auto-resume is just one that does.
+
+**Subagents are not counted.** A worker's completion is the *controller's*
+business: the controller is already notified when a worker finishes, and what
+it reads is the worker's own contract — the `DONE: <one-line summary>` the
+controller specified for that worker. So the plugin does not teach workers the
+protocol, and the tool's todo gate is skipped for them (v1 parity: v1
+registered the tool globally, a subagent could call it, and it changed nothing
+for the parent).
 
 ### The protocol
 
@@ -96,10 +109,11 @@ prompt there.
 > are available, mark every todo completed first: a completion with open items
 > is refused and you are told what is left. If there are no todo tools, keep
 > the work list in a findings file or a todo file and mark items done there
-> instead. Call it once, then end the turn with a brief text reply. If this
-> session has no task_complete tool, end the reply with the bare words TASK
-> COMPLETE on their own last line instead - that is the other completion
-> signal, and a watcher reads it from the transcript.
+> instead. Call it once, then end the turn with a brief text reply. Always end
+> that reply with the bare words TASK COMPLETE on their own last line - even
+> when the tool was available, because opencode withholds tools from sessions
+> created before the last restart, and the line is the completion signal that
+> always works: a watcher reads it from the transcript.
 
 **It checks first.** If the rule is already in effect - an operator's
 AGENTS.md, an agent file, another plugin's injection - the plugin stays quiet
