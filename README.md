@@ -41,8 +41,8 @@ the `execute` runtime — the model can never call it, and any instruction to do
 so ends in an unknown-tool error. In opencode's core
 (`packages/core/src/tool.ts`) the registry is split in two: `direct` — the
 tools with `codemode === false` — and the Code Mode catalog, and only `direct`
-reaches the model as a top-level tool. The `todowrite`/`todoread` plugin uses
-the same switch.
+reaches the model as a top-level tool. The `opencode-todolist` plugin (npm
+`opencode-todolist@0.6.1`) uses the same switch.
 
 ### v1 semantics, kept
 
@@ -168,9 +168,10 @@ config order — the config file.
 
 ## Where the todo list comes from
 
-The list belongs to the `todowrite` plugin, and plugin storage is namespaced
-per plugin id, so the list is read the way the todolist plugin's own TUI
-reads it: the newest completed `todowrite` tool part in the session history. A
+The list belongs to the `opencode-todolist` plugin (npm
+`opencode-todolist@0.6.1`), and plugin storage is namespaced per plugin id,
+so the list is read the way that plugin's own TUI reads it: the newest
+completed `todowrite` tool part in the session history. A
 `todowrite` REPLACES the whole list, so the newest such call IS the current
 list. An entry with an unrecognized status is kept rather than dropped: only
 `pending`/`in_progress` count as open, so an unknown status reads as closed —
@@ -186,5 +187,10 @@ bun test test/
 ## License
 
 MIT — see [LICENSE](./LICENSE). The session todo-list parser is derived from
-[opencode-todolist](https://github.com/aiev/opencode-todolist) (MIT, © 2026
-aiev); the third-party notice is in the LICENSE file.
+the npm package `opencode-todolist@0.6.1` —
+[aiev/opencode-todolist](https://github.com/aiev/opencode-todolist), tag
+`v0.6.1`, file
+[`src/tui-data.ts`](https://github.com/aiev/opencode-todolist/blob/v0.6.1/src/tui-data.ts)
+(MIT, © 2026 aiev). The third-party notice is in the LICENSE file. (Not the
+`famewolf/opencode-todolist` mirror or the `opencode-todolist-fix` fork -
+neither was the source of this file.)

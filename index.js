@@ -36,9 +36,12 @@
 // Shape mirrors the other plugins in this tree (see compaction-inject): a
 // default export with id + setup, no runtime dependencies.
 //
-// The session todo-list parser below is derived from opencode-todolist
-// (MIT, (c) 2026 aiev, https://github.com/aiev/opencode-todolist) - the same
-// routine is called latestTodosFromMessages in its src/tui-data.ts. The
+// The session todo-list parser below is derived from the npm package
+// `opencode-todolist@0.6.1` (MIT, (c) 2026 aiev,
+// https://github.com/aiev/opencode-todolist, tag v0.6.1, file
+// src/tui-data.ts) - the same routine is called latestTodosFromMessages
+// there. NOT the famewolf/opencode-todolist mirror and NOT the
+// opencode-todolist-fix fork: neither was the source of this file. The
 // third-party notice is in the LICENSE file.
 import { readFileSync } from "node:fs";
 
