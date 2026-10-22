@@ -65,6 +65,24 @@ reaches the model as a top-level tool. The `opencode-todolist` plugin (npm
   call, so the escalation measures a genuinely stuck loop and not several
   legitimate rounds of work.
 
+### The two completion signals
+
+There are two ways a model can say "I am finished", and a watcher has to
+understand both:
+
+1. **The tool call.** `task_complete` — structured, machine-readable, and the
+   result says whether the todo gate accepted it. This is what this plugin
+   provides.
+2. **The bare line.** `TASK COMPLETE`, alone on the last line of the reply.
+   Any watcher can read that out of the transcript, with no tool involved at
+   all — which is why the protocol below teaches it even though the tool is
+   right there: a session may have no `task_complete` tool (the plugin is not
+   installed, or the tool is disabled), and the bare line still ends the work
+   cleanly.
+
+Neither signal is auto-resume-specific. Any plugin that watches sessions can
+use either; auto-resume is just one that does.
+
 ### The protocol
 
 The plugin injects the completion rule into the session's system prompt, so
@@ -78,7 +96,10 @@ prompt there.
 > are available, mark every todo completed first: a completion with open items
 > is refused and you are told what is left. If there are no todo tools, keep
 > the work list in a findings file or a todo file and mark items done there
-> instead. Call it once, then end the turn with a brief text reply.
+> instead. Call it once, then end the turn with a brief text reply. If this
+> session has no task_complete tool, end the reply with the bare words TASK
+> COMPLETE on their own last line instead - that is the other completion
+> signal, and a watcher reads it from the transcript.
 
 **It checks first.** If the rule is already in effect - an operator's
 AGENTS.md, an agent file, another plugin's injection - the plugin stays quiet

@@ -97,7 +97,9 @@ const PROTOCOL =
 	"Task completion: when all the requested work is done, call the task_complete tool once - that is what stops the automatic continue nudges. " +
 	"If todo tools are available, mark every todo completed first: a completion with open items is refused and you are told what is left. " +
 	"If there are no todo tools, keep the work list in a findings file or a todo file and mark items done there instead. " +
-	"Call it once, then end the turn with a brief text reply.";
+	"Call it once, then end the turn with a brief text reply. " +
+	"If this session has no task_complete tool, end the reply with the bare words TASK COMPLETE on their own last line instead - " +
+	"that is the other completion signal, and a watcher reads it from the transcript.";
 
 // ---------------------------------------------------------------------------
 // Per-session state (plugin storage, so it survives a plugin reload)

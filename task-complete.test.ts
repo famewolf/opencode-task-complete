@@ -187,6 +187,9 @@ describe("task-complete: the plugin teaches the model the protocol", () => {
 		// The todo plugin may not be installed: the protocol has to cover the
 		// findings-file / todo-file fallback the model uses instead.
 		expect(injected[0].text).toContain("findings file or a todo file")
+		// The bare-line signal is taught too, and says who reads it: a watcher.
+		expect(injected[0].text).toContain("TASK COMPLETE")
+		expect(injected[0].text).toContain("a watcher reads it from the transcript")
 		h.cleanup()
 	})
 
