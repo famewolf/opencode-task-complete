@@ -22,6 +22,18 @@ or, from a checkout:
 { "package": "file:///path/to/opencode-task-complete" }
 ```
 
+**In the box:** the plugin (`index.js`), a test suite (`test/`), a worked
+consumer example (`examples/watcher/`), a [changelog](CHANGELOG.md) and
+[contributing notes](CONTRIBUTING.md). No runtime dependencies.
+
+**Check it works in one turn** — with the plugin installed, ask for a no-op
+task and look for the model calling `task_complete` and ending its reply with
+`TASK COMPLETE` on its own last line:
+
+```
+> This is a no-op task: there is nothing to do here. Finish your turn now.
+```
+
 ---
 
 ## The tool
@@ -229,6 +241,11 @@ makes real open work look finished).
 ```sh
 bun test test/
 ```
+
+## Repository
+
+- source of record: <https://github.com/famewolf/opencode-task-complete>
+- a mirror lives on gitea (`famewolf/opencode-task-complete`)
 
 ## License
 

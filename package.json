@@ -11,27 +11,38 @@
   },
   "files": [
     "index.js",
+    "examples",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "bun test test/"
+    "test": "bun test test/",
+    "prepublishOnly": "npm pack --dry-run"
   },
   "keywords": [
     "opencode",
     "opencode-plugin",
     "task-complete",
     "task_complete",
-    "completion"
+    "completion",
+    "stall",
+    "watcher"
   ],
   "license": "MIT",
   "author": "famewolf",
   "repository": {
     "type": "git",
-    "url": "https://gitea.lan/famewolf/opencode-task-complete.git"
+    "url": "git+https://github.com/famewolf/opencode-task-complete.git"
+  },
+  "homepage": "https://github.com/famewolf/opencode-task-complete",
+  "bugs": {
+    "url": "https://github.com/famewolf/opencode-task-complete/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "opencode": ">=2.0.0"
-  },
-  "homepage": "https://gitea.lan/famewolf/opencode-task-complete"
+  }
 }
