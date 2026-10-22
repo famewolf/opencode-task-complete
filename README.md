@@ -50,6 +50,12 @@ reaches the model as a top-level tool. The `opencode-todolist` plugin (npm
   the result names them. A model that keeps calling after that is a loop, not
   a worker, so the block is bounded (`maxOverrides`, default 3): after that the
   call is believed.
+
+  The gate reads the `todowrite` history, so **it needs no todo plugin**:
+  with none installed there is no list, the gate never refuses, and the tool
+  is a pure completion signal. The model then tracks its work wherever the
+  operator's protocol says — a findings file or a todo file — and the
+  completion signal is the same either way.
 - **The ack self-loop guard.** The ack is fed straight back into the turn, and
   a stuck model answers it by calling the tool again rather than ending with
   text (v1 logged 27 consecutive acked calls with zero new user input). So the
@@ -168,10 +174,10 @@ config order — the config file.
 
 ## Where the todo list comes from
 
-The list belongs to the `opencode-todolist` plugin (npm
-`opencode-todolist@0.6.1`), and plugin storage is namespaced per plugin id,
-so the list is read the way that plugin's own TUI reads it: the newest
-completed `todowrite` tool part in the session history. A
+When the `opencode-todolist` plugin (npm `opencode-todolist@0.6.1`) IS
+installed, the list belongs to it, and plugin storage is namespaced per
+plugin id, so the list is read the way that plugin's own TUI reads it: the
+newest completed `todowrite` tool part in the session history. A
 `todowrite` REPLACES the whole list, so the newest such call IS the current
 list. An entry with an unrecognized status is kept rather than dropped: only
 `pending`/`in_progress` count as open, so an unknown status reads as closed —
